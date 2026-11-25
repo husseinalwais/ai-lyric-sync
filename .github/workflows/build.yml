@@ -27,8 +27,10 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Accept Android SDK Licenses
+        run: |
+          SDKM=$(find "${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools" -name sdkmanager | head -n 1)
+          if [ -n "$SDKM" ]; then yes | "$SDKM" --licenses > /dev/null || true; fi
 
       - name: Prepare Android project
         working-directory: ai-lyric-sync-apk-project
