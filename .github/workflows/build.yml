@@ -1,0 +1,51 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Unzip project
+        run: |
+          for f in *.zip; do unzip -o "$f"; done
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Prepare Android project
+        working-directory: ai-lyric-sync-apk-project
+        run: |
+          npm install
+          npx cap add android
+          node scripts/patch-android.js
+          npx cap sync android
+
+      - name: Build Debug APK
+        working-directory: ai-lyric-sync-apk-project/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload Installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-lyric-sync-debug-apk
+          path: ai-lyric-sync-apk-project/android/app/build/outputs/apk/debug/app-debug.apk
