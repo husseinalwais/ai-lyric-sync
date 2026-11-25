@@ -12,10 +12,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Unzip project
-        run: |
-          for f in *.zip; do unzip -o "$f"; done
-
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
@@ -32,22 +28,33 @@ jobs:
           SDKM=$(find "${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools" -name sdkmanager | head -n 1)
           if [ -n "$SDKM" ]; then yes | "$SDKM" --licenses > /dev/null || true; fi
 
-      - name: Prepare Android project
-        working-directory: ai-lyric-sync-apk-project
+      - name: Unzip and Build Debug APK
         run: |
+          set -e
+          for f in *.zip; do
+            [ -e "$f" ] && unzip -o "$f"
+          done
+          chmod -R u+rwX .
+          PKG=$(find . -maxdepth 3 -name package.json | head -n 1)
+          if [ -z "$PKG" ]; then
+            echo "ERROR: package.json not found after unzip!"
+            ls -la
+            exit 1
+          fi
+          APP_DIR=$(dirname "$PKG")
+          echo "Building project in: $APP_DIR"
+          cd "$APP_DIR"
           npm install
           npx cap add android
           node scripts/patch-android.js
           npx cap sync android
-
-      - name: Build Debug APK
-        working-directory: ai-lyric-sync-apk-project/android
-        run: |
+          cd android
           chmod +x gradlew
           ./gradlew assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/app-debug.apk"
 
       - name: Upload Installable APK
         uses: actions/upload-artifact@v4
         with:
           name: ai-lyric-sync-debug-apk
-          path: ai-lyric-sync-apk-project/android/app/build/outputs/apk/debug/app-debug.apk
+          path: app-debug.apk
